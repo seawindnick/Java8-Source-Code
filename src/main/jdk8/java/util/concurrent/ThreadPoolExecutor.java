@@ -627,6 +627,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         }
 
         protected boolean tryAcquire(int unused) {
+            // TODO 获取锁时 设置state需要原子性
             if (compareAndSetState(0, 1)) {
                 setExclusiveOwnerThread(Thread.currentThread());
                 return true;
@@ -636,6 +637,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
         protected boolean tryRelease(int unused) {
             setExclusiveOwnerThread(null);
+            // TODO 释放时不需要原子性
             setState(0);
             return true;
         }

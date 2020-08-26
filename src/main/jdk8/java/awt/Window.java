@@ -4108,6 +4108,11 @@ public class Window extends Container implements Accessible {
             public void setTrayIconWindow(Window w, boolean isTrayIconWindow) {
                 w.isTrayIconWindow = isTrayIconWindow;
             }
+
+            @Override
+            public Window[] getOwnedWindows(Window window) {
+                return new Window[0];
+            }
         }); // WindowAccessor
     } // static
 

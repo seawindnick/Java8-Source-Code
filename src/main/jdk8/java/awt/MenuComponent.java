@@ -145,6 +145,11 @@ public abstract class MenuComponent implements java.io.Serializable {
                 public Font getFont_NoClientCode(MenuComponent menuComp) {
                     return menuComp.getFont_NoClientCode();
                 }
+
+                @Override
+                public <T extends MenuComponentPeer> T getPeer(MenuComponent menuComponent) {
+                    return null;
+                }
             });
     }
 
