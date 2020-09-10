@@ -1235,6 +1235,13 @@ public abstract class AbstractQueuedLongSynchronizer
      * #tryAcquireShared}) then it is guaranteed that the current thread
      * is not the first queued thread.  Used only as a heuristic in
      * ReentrantReadWriteLock.
+     *
+     *
+     */
+
+    /**
+     * TODO 如果头节点的下一个节点是独占线程，为了防止该独占线程即写线程进行饥饿等待，后入线程应该进行排队，否则可以写入
+     * @return
      */
     final boolean apparentlyFirstQueuedIsExclusive() {
         Node h, s;

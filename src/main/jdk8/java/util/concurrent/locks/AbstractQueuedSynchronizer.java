@@ -136,12 +136,12 @@ public abstract class AbstractQueuedSynchronizer
     static final class Node {
         /** Marker to indicate a node is waiting in shared mode */
         /**
-         *
+         * 共享节点
          */
         static final Node SHARED = new Node();
         /** Marker to indicate a node is waiting in exclusive mode */
         /**
-         * 专用队列
+         * 独占节点
          */
         static final Node EXCLUSIVE = null;
 
@@ -288,6 +288,7 @@ public abstract class AbstractQueuedSynchronizer
          * be elided, but is present to help the VM.
          *
          * @return the predecessor of this node
+         * 查看是否有前驱
          */
         final Node predecessor() throws NullPointerException {
             Node p = prev;
@@ -556,9 +557,12 @@ public abstract class AbstractQueuedSynchronizer
          *
          */
         for (; ; ) {
+            //唤醒节点从头开始，该头节点已经被设置为新的节点
+            //唤醒共享锁戒丢安的后继节点
             Node h = head;
             if (h != null && h != tail) {
                 int ws = h.waitStatus;
+                //表示节点需要被唤醒
                 if (ws == Node.SIGNAL) {
                     // 如果标记失败，重试
                     if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0))
@@ -566,6 +570,7 @@ public abstract class AbstractQueuedSynchronizer
                     // 标记成功 唤醒节点
                     unparkSuccessor(h);
                 } else if (ws == 0 &&
+                        //如果后继节点不需要被唤醒 ，则把当前节点状态设置为 PROPAGATE 确保以后可以传递下去
                         !compareAndSetWaitStatus(h, 0, Node.PROPAGATE))
                     // 如果waitStatus为0 将其标记为 PROPAGATE
                     continue;                // loop on failed CAS
@@ -583,9 +588,19 @@ public abstract class AbstractQueuedSynchronizer
      * @param node      the node
      * @param propagate the return value from a tryAcquireShared
      */
+    /**
+     *
+     * @param node 当前锁节点
+     * @param propagate tryAcquireShared方法的返回值，注意上面说的，它可能大于0也可能等于0
+     */
     private void setHeadAndPropagate(Node node, int propagate) {
+        //记录当前头节点
         Node h = head; // Record old head for check below
         //TODO  将头节点进行替换？
+        /**
+         * 设置新的头节点，把当前获取到锁的节点设置为头节点
+         * 由于是获取到锁之后的操作，不需要进行并发控制
+         */
         setHead(node);
         /*
          * Try to signal next queued node if:
@@ -603,9 +618,20 @@ public abstract class AbstractQueuedSynchronizer
          * racing acquires/releases, so most need signals now or soon
          * anyway.
          */
+        /**
+         * 唤醒后继节点两种条件
+         * 1。propagate > 0, 表示调用方法指明后继节点需要被唤醒，因为此方法是获取读锁过程调用，那么后面的节点很可能也是获取读锁
+         * 2。头节点后面的节点需要被唤醒 waitStatus < 0,不论是老的头节点还是新的头节点
+         */
         if (propagate > 0 || h == null || h.waitStatus < 0 ||
                 (h = head) == null || h.waitStatus < 0) {
             Node s = node.next;
+            /**
+             * 如果当前节点的后继节点是共享类型，则进行唤醒
+             * 即非明确指明不需要唤醒（后继节点为独占类型），否则都需要进行唤醒
+             *
+             * 后一个节点是共享节点，则唤醒，实现共享，独占锁有释放时，唤醒
+             */
             if (s == null || s.isShared())
                 doReleaseShared();
         }
@@ -786,12 +812,20 @@ public abstract class AbstractQueuedSynchronizer
      */
     private void doAcquireInterruptibly(int arg)
             throws InterruptedException {
+        //将当前线程节点放入队列中
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
             for (; ; ) {
+                //获取当前节点的前继节点
                 final Node p = node.predecessor();
+                /**
+                 * 前继节点为头节点
+                 * 1。前继节点现在占用lock
+                 * 2. 前继节点是空节点，已经释放lock,
+                 */
                 if (p == head && tryAcquire(arg)) {
+
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
@@ -851,31 +885,45 @@ public abstract class AbstractQueuedSynchronizer
      * Acquires in shared uninterruptible mode.
      *
      * @param arg the acquire argument
+     *
+     *  获取共享锁
      */
     private void doAcquireShared(int arg) {
+        // 将当前节点加入队列中
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
             boolean interrupted = false;
             for (; ; ) {
+                //获取节点的前一个节点
                 final Node p = node.predecessor();
+                /**
+                 * 前继节点为头节点
+                 * 1。前继节点现在占用lock
+                 * 2. 前继节点是空节点，已经释放lock,
+                 */
                 if (p == head) {
                     int r = tryAcquireShared(arg);
                     if (r >= 0) {
+                        //获取lock成功，设置新的head,并唤醒后继获取 readLock节点
                         setHeadAndPropagate(node, r);
                         p.next = null; // help GC
+                        //在获取lock时被中断过，自我再中断一次
                         if (interrupted)
                             selfInterrupt();
                         failed = false;
                         return;
                     }
                 }
+                //判断是否需要进行中断
                 if (shouldParkAfterFailedAcquire(p, node) &&
+                        // lock仍被其他线程阻塞，则睡眠，并返回是否线程是否处于被中断状态
                         parkAndCheckInterrupt())
                     interrupted = true;
             }
         } finally {
             if (failed)
+                //请求Node节点并删除
                 cancelAcquire(node);
         }
     }
@@ -1465,6 +1513,8 @@ public abstract class AbstractQueuedSynchronizer
      * current thread, and {@code false} if the current thread
      * is at the head of the queue or the queue is empty
      * @since 1.7
+     *
+     * 前面是否有等待线程
      */
     public final boolean hasQueuedPredecessors() {
         // The correctness of this depends on head being initialized
