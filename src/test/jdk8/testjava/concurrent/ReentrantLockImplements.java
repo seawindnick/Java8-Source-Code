@@ -13,6 +13,7 @@ public class ReentrantLockImplements {
 
     public static void main(String[] args) {
         Lock lock = new ReentrantLock();
+        System.out.println("哈哈");
         lock.lock();
         try {
         } finally {

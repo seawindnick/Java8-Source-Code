@@ -28,13 +28,29 @@ package java.util;
 import java.util.function.Consumer;
 
 /**
+ * 双向链表，实现 List 和 Deque 接口
+ * 实现 list 所有操作，允许所有元素和null元素
+ * <p>
+ * <p>
+ * <p>
+ * <p>
  * Doubly-linked list implementation of the {@code List} and {@code Deque}
  * interfaces.  Implements all optional list operations, and permits all
  * elements (including {@code null}).
+ * <p>
+ * 所有操作可以像双向链表执行，从角标操作插入将要从头到尾遍历整个链表，无论是否是靠近指定的位置
+ *
  *
  * <p>All of the operations perform as could be expected for a doubly-linked
  * list.  Operations that index into the list will traverse the list from
  * the beginning or the end, whichever is closer to the specified index.
+ * <p>
+ * 实现不是线程安全的
+ * 如果多线程允许并发操作一个链表，至少有一个线程在结构上修改链表，其外部必须使用同步
+ * 一个结构上的修改 是 无论操作新增或者删除一个或多个元素
+ * 仅仅是给一个元素设置值不是在结构上的改变
+ * 通常同步 同步完成一些 对象自然的封装到集合中
+ *
  *
  * <p><strong>Note that this implementation is not synchronized.</strong>
  * If multiple threads access a linked list concurrently, and at least
@@ -44,12 +60,18 @@ import java.util.function.Consumer;
  * an element is not a structural modification.)  This is typically
  * accomplished by synchronizing on some object that naturally
  * encapsulates the list.
- *
+ * <p>
+ * 如果没有对象存在，该集合必须被 Collections#synchronizedList Collections.synchronizedLis 方法进行装饰
+ * 最好是在创建时做这件事情，去阻止不同步的事故发生
+ * <p>
  * If no such object exists, the list should be "wrapped" using the
  * {@link Collections#synchronizedList Collections.synchronizedList}
  * method.  This is best done at creation time, to prevent accidental
  * unsynchronized access to the list:<pre>
  *   List list = Collections.synchronizedList(new LinkedList(...));</pre>
+ * <p>
+ * 在迭代器创建之后，集合结构发生任何改变，无论是否是通过期望的迭代器自身add或者delete方法，迭代器都会抛出异常信息
+ * 这样，多线程并发修改时，迭代器会快速失败并且清理，即使有风险，在将来不确定的时间有不确定的行为
  *
  * <p>The iterators returned by this class's {@code iterator} and
  * {@code listIterator} methods are <i>fail-fast</i>: if the list is
@@ -60,6 +82,12 @@ import java.util.function.Consumer;
  * modification, the iterator fails quickly and cleanly, rather than
  * risking arbitrary, non-deterministic behavior at an undetermined
  * time in the future.
+ * <p>
+ * 迭代器的快速失败行为没有保证，一般凯说，在线程不安全的多线程并发修改可能会造成困难的保证
+ * 迭代器快速失败是一个最优的解决方案
+ * <p>
+ * 然而，它会造成写程序错误，当器依赖这个正确性的异常
+ * 迭代器的快速失败通常会造成检测Bug
  *
  * <p>Note that the fail-fast behavior of an iterator cannot be guaranteed
  * as it is, generally speaking, impossible to make any hard guarantees in the
@@ -73,30 +101,33 @@ import java.util.function.Consumer;
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
- * @author  Josh Bloch
- * @see     List
- * @see     ArrayList
- * @since 1.2
  * @param <E> the type of elements held in this collection
+ * @author Josh Bloch
+ * @see List
+ * @see ArrayList
+ * @since 1.2
  */
 
 public class LinkedList<E>
-    extends AbstractSequentialList<E>
-    implements List<E>, Deque<E>, Cloneable, java.io.Serializable
-{
+        extends AbstractSequentialList<E>
+        implements List<E>, Deque<E>, Cloneable, java.io.Serializable {
+    //长度
     transient int size = 0;
 
     /**
      * Pointer to first node.
      * Invariant: (first == null && last == null) ||
-     *            (first.prev == null && first.item != null)
+     * (first.prev == null && first.item != null)
+     * 头元素
      */
     transient Node<E> first;
 
     /**
      * Pointer to last node.
      * Invariant: (first == null && last == null) ||
-     *            (last.next == null && last.item != null)
+     * (last.next == null && last.item != null)
+     * <p>
+     * 尾元素
      */
     transient Node<E> last;
 
@@ -111,7 +142,7 @@ public class LinkedList<E>
      * collection, in the order they are returned by the collection's
      * iterator.
      *
-     * @param  c the collection whose elements are to be placed into this list
+     * @param c the collection whose elements are to be placed into this list
      * @throws NullPointerException if the specified collection is null
      */
     public LinkedList(Collection<? extends E> c) {
@@ -121,14 +152,18 @@ public class LinkedList<E>
 
     /**
      * Links e as first element.
+     * 向链表头添加元素
      */
     private void linkFirst(E e) {
         final Node<E> f = first;
+        //创建一个头元素，其pre为null,其next是上一个头元素
         final Node<E> newNode = new Node<>(null, e, f);
         first = newNode;
+        //说明没有元素，将尾元素也设置为该节点
         if (f == null)
             last = newNode;
         else
+            //设置上一个头元素的pre属性
             f.prev = newNode;
         size++;
         modCount++;
@@ -139,12 +174,18 @@ public class LinkedList<E>
      */
     void linkLast(E e) {
         final Node<E> l = last;
+        //创建一个尾元素，其 pre为上一个尾元素，其next是null
         final Node<E> newNode = new Node<>(l, e, null);
+        //创建元素之后，将尾节点指向该元素
         last = newNode;
+
+        //如果没有头元素，则其就是头元素
         if (l == null)
             first = newNode;
         else
+            //有头元素，则将旧尾元素的下一个指针指向该元素
             l.next = newNode;
+        //更改大小和版本
         size++;
         modCount++;
     }
@@ -170,14 +211,20 @@ public class LinkedList<E>
      */
     private E unlinkFirst(Node<E> f) {
         // assert f == first && f != null;
+        //获取节点存储的对象信息
         final E element = f.item;
+        //获取下一个节点
         final Node<E> next = f.next;
+        //节点属性置空，由于删除的是头号节点，因此其pre本就是null的，无需再次置null
         f.item = null;
         f.next = null; // help GC
+        //将原有头节点的下一个元素设置为新的头节点
         first = next;
+        //如果下一个节点是null的，说明没有后续元素，将尾元素也设置为null
         if (next == null)
             last = null;
         else
+            //将历史下一个节点的前驱置为null,因为他就是头节点
             next.prev = null;
         size--;
         modCount++;
@@ -260,7 +307,7 @@ public class LinkedList<E>
 
     /**
      * Removes and returns the first element from this list.
-     *
+     * 删除并返回链表中的头节点
      * @return the first element from this list
      * @throws NoSuchElementException if this list is empty
      */
@@ -397,10 +444,10 @@ public class LinkedList<E>
      *
      * @param index index at which to insert the first element
      *              from the specified collection
-     * @param c collection containing elements to be added to this list
+     * @param c     collection containing elements to be added to this list
      * @return {@code true} if this list changed as a result of the call
      * @throws IndexOutOfBoundsException {@inheritDoc}
-     * @throws NullPointerException if the specified collection is null
+     * @throws NullPointerException      if the specified collection is null
      */
     public boolean addAll(int index, Collection<? extends E> c) {
         checkPositionIndex(index);
@@ -481,7 +528,7 @@ public class LinkedList<E>
      * Replaces the element at the specified position in this list with the
      * specified element.
      *
-     * @param index index of the element to replace
+     * @param index   index of the element to replace
      * @param element element to be stored at the specified position
      * @return the element previously at the specified position
      * @throws IndexOutOfBoundsException {@inheritDoc}
@@ -499,7 +546,7 @@ public class LinkedList<E>
      * Shifts the element currently at that position (if any) and any
      * subsequent elements to the right (adds one to their indices).
      *
-     * @param index index at which the specified element is to be inserted
+     * @param index   index at which the specified element is to be inserted
      * @param element element to be inserted
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
@@ -547,7 +594,7 @@ public class LinkedList<E>
      * this "outlining" performs best with both server and client VMs.
      */
     private String outOfBoundsMsg(int index) {
-        return "Index: "+index+", Size: "+size;
+        return "Index: " + index + ", Size: " + size;
     }
 
     private void checkElementIndex(int index) {
@@ -562,16 +609,18 @@ public class LinkedList<E>
 
     /**
      * Returns the (non-null) Node at the specified element index.
+     * 返回指定位置非空的元素
      */
     Node<E> node(int index) {
         // assert isElementIndex(index);
-
+        // 指定位置小于一半，从头开始向后遍历
         if (index < (size >> 1)) {
             Node<E> x = first;
             for (int i = 0; i < index; i++)
                 x = x.next;
             return x;
         } else {
+            //大于一半，从尾部开始向前遍历
             Node<E> x = last;
             for (int i = size - 1; i > index; i--)
                 x = x.prev;
@@ -590,7 +639,7 @@ public class LinkedList<E>
      *
      * @param o element to search for
      * @return the index of the first occurrence of the specified element in
-     *         this list, or -1 if this list does not contain the element
+     * this list, or -1 if this list does not contain the element
      */
     public int indexOf(Object o) {
         int index = 0;
@@ -619,7 +668,7 @@ public class LinkedList<E>
      *
      * @param o element to search for
      * @return the index of the last occurrence of the specified element in
-     *         this list, or -1 if this list does not contain the element
+     * this list, or -1 if this list does not contain the element
      */
     public int lastIndexOf(Object o) {
         int index = size;
@@ -697,6 +746,7 @@ public class LinkedList<E>
     }
 
     // Deque operations
+
     /**
      * Inserts the specified element at the front of this list.
      *
@@ -726,20 +776,20 @@ public class LinkedList<E>
      * or returns {@code null} if this list is empty.
      *
      * @return the first element of this list, or {@code null}
-     *         if this list is empty
+     * if this list is empty
      * @since 1.6
      */
     public E peekFirst() {
         final Node<E> f = first;
         return (f == null) ? null : f.item;
-     }
+    }
 
     /**
      * Retrieves, but does not remove, the last element of this list,
      * or returns {@code null} if this list is empty.
      *
      * @return the last element of this list, or {@code null}
-     *         if this list is empty
+     * if this list is empty
      * @since 1.6
      */
     public E peekLast() {
@@ -752,7 +802,7 @@ public class LinkedList<E>
      * or returns {@code null} if this list is empty.
      *
      * @return the first element of this list, or {@code null} if
-     *     this list is empty
+     * this list is empty
      * @since 1.6
      */
     public E pollFirst() {
@@ -765,7 +815,7 @@ public class LinkedList<E>
      * or returns {@code null} if this list is empty.
      *
      * @return the last element of this list, or {@code null} if
-     *     this list is empty
+     * this list is empty
      * @since 1.6
      */
     public E pollLast() {
@@ -793,7 +843,7 @@ public class LinkedList<E>
      * <p>This method is equivalent to {@link #removeFirst()}.
      *
      * @return the element at the front of this list (which is the top
-     *         of the stack represented by this list)
+     * of the stack represented by this list)
      * @throws NoSuchElementException if this list is empty
      * @since 1.6
      */
@@ -843,10 +893,16 @@ public class LinkedList<E>
     }
 
     /**
+     *
+     * 返回一个集合迭代器，从一个指定的位置开始
+     * 遵循平常迭代器的规范
+     *
+     * 集合迭代器是可以快速失败的，
+     *
      * Returns a list-iterator of the elements in this list (in proper
      * sequence), starting at the specified position in the list.
      * Obeys the general contract of {@code List.listIterator(int)}.<p>
-     *
+     * <p>
      * The list-iterator is <i>fail-fast</i>: if the list is structurally
      * modified at any time after the Iterator is created, in any way except
      * through the list-iterator's own {@code remove} or {@code add}
@@ -859,7 +915,7 @@ public class LinkedList<E>
      * @param index index of the first element to be returned from the
      *              list-iterator (by a call to {@code next})
      * @return a ListIterator of the elements in this list (in proper
-     *         sequence), starting at the specified position in the list
+     * sequence), starting at the specified position in the list
      * @throws IndexOutOfBoundsException {@inheritDoc}
      * @see List#listIterator(int)
      */
@@ -868,12 +924,22 @@ public class LinkedList<E>
         return new ListItr(index);
     }
 
+    /**
+     * 双向迭代器
+     */
     private class ListItr implements ListIterator<E> {
+        //上一次执行 next 或者 previos 方法时即诶单位置
         private Node<E> lastReturned;
+        //下一个节点
         private Node<E> next;
+        //下一个节点位置的角标
         private int nextIndex;
         private int expectedModCount = modCount;
 
+        /**
+         * 角标值是从 0开始，第 index 位置的元素，其真实角标位置是 index-1, index是其下一个元素的角标
+         * @param index
+         */
         ListItr(int index) {
             // assert isPositionIndex(index);
             next = (index == size) ? null : node(index);
@@ -888,9 +954,11 @@ public class LinkedList<E>
             checkForComodification();
             if (!hasNext())
                 throw new NoSuchElementException();
-
+            //这次返回的数据记做最后返回的值信息
             lastReturned = next;
+            //这一次返回数据的下一个元素就是 下一次要返回的数据
             next = next.next;
+            //下一次要返回数据的角标 ++
             nextIndex++;
             return lastReturned.item;
         }
@@ -903,7 +971,12 @@ public class LinkedList<E>
             checkForComodification();
             if (!hasPrevious())
                 throw new NoSuchElementException();
-
+            //next就是这次要返回的数据信息
+            /**
+             * next 为空
+             * 1.第一次迭代，取尾部节点
+             * 2.上一次迭代把尾节点删除
+             */
             lastReturned = next = (next == null) ? last : next.prev;
             nextIndex--;
             return lastReturned.item;
@@ -923,8 +996,18 @@ public class LinkedList<E>
                 throw new IllegalStateException();
 
             Node<E> lastNext = lastReturned.next;
+            //删除当前节点
             unlink(lastReturned);
+            /**
+             *
+             * 从 尾部到头 节点遍历，第一次迭代，删除的元素是最后一个元素,该情况下，previous 设置了 lastReturned = next = last
+             * 因此nexu 和last会相等
+             *
+             */
             if (next == lastReturned)
+            /**
+             * 此时lastReturned是尾节点，lastNext是null,next 是 null,在执行 previous 时，发现next为null,将尾节点赋值给next
+             */
                 next = lastNext;
             else
                 nextIndex--;
@@ -991,12 +1074,15 @@ public class LinkedList<E>
      */
     private class DescendingIterator implements Iterator<E> {
         private final ListItr itr = new ListItr(size());
+
         public boolean hasNext() {
             return itr.hasPrevious();
         }
+
         public E next() {
             return itr.previous();
         }
+
         public void remove() {
             itr.remove();
         }
@@ -1044,7 +1130,7 @@ public class LinkedList<E>
      * APIs.
      *
      * @return an array containing all of the elements in this list
-     *         in proper sequence
+     * in proper sequence
      */
     public Object[] toArray() {
         Object[] result = new Object[size];
@@ -1079,7 +1165,7 @@ public class LinkedList<E>
      *
      * <pre>
      *     String[] y = x.toArray(new String[0]);</pre>
-     *
+     * <p>
      * Note that {@code toArray(new Object[0])} is identical in function to
      * {@code toArray()}.
      *
@@ -1087,16 +1173,16 @@ public class LinkedList<E>
      *          be stored, if it is big enough; otherwise, a new array of the
      *          same runtime type is allocated for this purpose.
      * @return an array containing the elements of the list
-     * @throws ArrayStoreException if the runtime type of the specified array
-     *         is not a supertype of the runtime type of every element in
-     *         this list
+     * @throws ArrayStoreException  if the runtime type of the specified array
+     *                              is not a supertype of the runtime type of every element in
+     *                              this list
      * @throws NullPointerException if the specified array is null
      */
     @SuppressWarnings("unchecked")
     public <T> T[] toArray(T[] a) {
         if (a.length < size)
-            a = (T[])java.lang.reflect.Array.newInstance(
-                                a.getClass().getComponentType(), size);
+            a = (T[]) java.lang.reflect.Array.newInstance(
+                    a.getClass().getComponentType(), size);
         int i = 0;
         Object[] result = a;
         for (Node<E> x = first; x != null; x = x.next)
@@ -1115,11 +1201,11 @@ public class LinkedList<E>
      * (that is, serializes it).
      *
      * @serialData The size of the list (the number of elements it
-     *             contains) is emitted (int), followed by all of its
-     *             elements (each an Object) in the proper order.
+     * contains) is emitted (int), followed by all of its
+     * elements (each an Object) in the proper order.
      */
     private void writeObject(java.io.ObjectOutputStream s)
-        throws java.io.IOException {
+            throws java.io.IOException {
         // Write out any hidden serialization magic
         s.defaultWriteObject();
 
@@ -1137,7 +1223,7 @@ public class LinkedList<E>
      */
     @SuppressWarnings("unchecked")
     private void readObject(java.io.ObjectInputStream s)
-        throws java.io.IOException, ClassNotFoundException {
+            throws java.io.IOException, ClassNotFoundException {
         // Read in any hidden serialization magic
         s.defaultReadObject();
 
@@ -1146,7 +1232,7 @@ public class LinkedList<E>
 
         // Read in all elements in the proper order.
         for (int i = 0; i < size; i++)
-            linkLast((E)s.readObject());
+            linkLast((E) s.readObject());
     }
 
     /**
@@ -1158,11 +1244,9 @@ public class LinkedList<E>
      * {@link Spliterator#ORDERED}.  Overriding implementations should document
      * the reporting of additional characteristic values.
      *
-     * @implNote
-     * The {@code Spliterator} additionally reports {@link Spliterator#SUBSIZED}
-     * and implements {@code trySplit} to permit limited parallelism..
-     *
      * @return a {@code Spliterator} over the elements in this list
+     * @implNote The {@code Spliterator} additionally reports {@link Spliterator#SUBSIZED}
+     * and implements {@code trySplit} to permit limited parallelism..
      * @since 1.8
      */
     @Override
@@ -1170,7 +1254,9 @@ public class LinkedList<E>
         return new LLSpliterator<E>(this, -1, 0);
     }
 
-    /** A customized variant of Spliterators.IteratorSpliterator */
+    /**
+     * A customized variant of Spliterators.IteratorSpliterator
+     */
     static final class LLSpliterator<E> implements Spliterator<E> {
         static final int BATCH_UNIT = 1 << 10;  // batch array size increment
         static final int MAX_BATCH = 1 << 25;  // max batch array size;
@@ -1201,7 +1287,9 @@ public class LinkedList<E>
             return s;
         }
 
-        public long estimateSize() { return (long) getEst(); }
+        public long estimateSize() {
+            return (long) getEst();
+        }
 
         public Spliterator<E> trySplit() {
             Node<E> p;
@@ -1214,7 +1302,9 @@ public class LinkedList<E>
                     n = MAX_BATCH;
                 Object[] a = new Object[n];
                 int j = 0;
-                do { a[j++] = p.item; } while ((p = p.next) != null && j < n);
+                do {
+                    a[j++] = p.item;
+                } while ((p = p.next) != null && j < n);
                 current = p;
                 batch = j;
                 est = s - j;
@@ -1224,7 +1314,8 @@ public class LinkedList<E>
         }
 
         public void forEachRemaining(Consumer<? super E> action) {
-            Node<E> p; int n;
+            Node<E> p;
+            int n;
             if (action == null) throw new NullPointerException();
             if ((n = getEst()) > 0 && (p = current) != null) {
                 current = null;

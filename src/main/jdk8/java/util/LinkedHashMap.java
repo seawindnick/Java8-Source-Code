@@ -200,6 +200,7 @@ public class LinkedHashMap<K,V>
 
     /**
      * The head (eldest) of the doubly linked list.
+     *
      */
     transient LinkedHashMap.Entry<K,V> head;
 
@@ -211,7 +212,8 @@ public class LinkedHashMap<K,V>
     /**
      * The iteration ordering method for this linked hash map: <tt>true</tt>
      * for access-order, <tt>false</tt> for insertion-order.
-     *
+     * true 按照访问顺序，将经常访问的key放在队尾
+     * false 按照插入顺序访问
      * @serial
      */
     final boolean accessOrder;

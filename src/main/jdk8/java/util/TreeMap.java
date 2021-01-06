@@ -115,20 +115,25 @@ public class TreeMap<K,V>
     /**
      * The comparator used to maintain order in this tree map, or
      * null if it uses the natural ordering of its keys.
-     *
+     * 比较器
      * @serial
      */
     private final Comparator<? super K> comparator;
 
+    /**
+     * 红黑树跟节点
+     */
     private transient Entry<K,V> root;
 
     /**
      * The number of entries in the tree
+     * 已有元素数量
      */
     private transient int size = 0;
 
     /**
      * The number of structural modifications to the tree.
+     * 修改版本号
      */
     private transient int modCount = 0;
 
@@ -531,10 +536,12 @@ public class TreeMap<K,V>
      * @throws NullPointerException if the specified key is null
      *         and this map uses natural ordering, or its comparator
      *         does not permit null keys
+     * 不允许添加空key
      */
     public V put(K key, V value) {
         Entry<K,V> t = root;
         if (t == null) {
+            //不允许 空key
             compare(key, key); // type (and possibly null) check
 
             root = new Entry<>(key, value, null);
