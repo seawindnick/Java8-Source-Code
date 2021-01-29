@@ -68,14 +68,25 @@ import java.util.function.Consumer;
  * <p>This class and its iterator implement all of the
  * <em>optional</em> methods of the {@link Collection} and {@link
  * Iterator} interfaces.
+ * <p>
+ * 一个基于链表可以操作的有界队列
+ * 这个队列按照元素支持 先进先出
+ * 队列的头元素在这个队列中存在最长的时间
+ * 尾部元素是存在队列中最短的元素
+ * 新的元素插入队列的尾部，这个队列检索操作获得元素从表头
+ * 链表队列 通常有高的吞吐量比基于数组的队列
+ * 但是低的程序性能在高并发应用
+ * <p>
+ * 构造器参数提供一个界限去操作容量，去阻止队列过度扩张
+ * 如果没有指定容量，那么它就是Integer.Maxvalue.链表数组被动态创建在所有的插入操作，除非它会使容量超出界限
  *
  * <p>This class is a member of the
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
- * @since 1.5
- * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ * @author Doug Lea
+ * @since 1.5
  */
 public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable {
@@ -130,37 +141,58 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
          */
         Node<E> next;
 
-        Node(E x) { item = x; }
+        Node(E x) {
+            item = x;
+        }
     }
 
-    /** The capacity bound, or Integer.MAX_VALUE if none */
+    /**
+     * The capacity bound, or Integer.MAX_VALUE if none
+     */
+    //队列容量，构造参数没有指定，默认Integer.MAX_VALUE
     private final int capacity;
 
-    /** Current number of elements */
+    /**
+     * Current number of elements
+     */
+    //元素计数器
     private final AtomicInteger count = new AtomicInteger();
 
     /**
      * Head of linked list.
      * Invariant: head.item == null
+     * 头节点
      */
     transient Node<E> head;
 
     /**
      * Tail of linked list.
      * Invariant: last.next == null
+     * 尾部节点
      */
     private transient Node<E> last;
 
-    /** Lock held by take, poll, etc */
+    /**
+     * Lock held by take, poll, etc
+     */
+    //互斥锁 take时的锁
     private final ReentrantLock takeLock = new ReentrantLock();
 
-    /** Wait queue for waiting takes */
+    /**
+     * Wait queue for waiting takes
+     */
+    //等待条件
     private final Condition notEmpty = takeLock.newCondition();
 
-    /** Lock held by put, offer, etc */
+    /**
+     * Lock held by put, offer, etc
+     */
+    //写入数据锁 为了take和put可以同时进行
     private final ReentrantLock putLock = new ReentrantLock();
 
-    /** Wait queue for waiting puts */
+    /**
+     * Wait queue for waiting puts
+     */
     private final Condition notFull = putLock.newCondition();
 
     /**
@@ -171,6 +203,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock takeLock = this.takeLock;
         takeLock.lock();
         try {
+            //唤醒非空条件
             notEmpty.signal();
         } finally {
             takeLock.unlock();
@@ -255,11 +288,12 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      *
      * @param capacity the capacity of this queue
      * @throws IllegalArgumentException if {@code capacity} is not greater
-     *         than zero
+     *                                  than zero
      */
     public LinkedBlockingQueue(int capacity) {
         if (capacity <= 0) throw new IllegalArgumentException();
         this.capacity = capacity;
+        //队列一初始化就创建节点 TODO 为什么不是懒加载？
         last = head = new Node<E>(null);
     }
 
@@ -271,7 +305,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      *
      * @param c the collection of elements to initially contain
      * @throws NullPointerException if the specified collection or any
-     *         of its elements are null
+     *                              of its elements are null
      */
     public LinkedBlockingQueue(Collection<? extends E> c) {
         this(Integer.MAX_VALUE);
@@ -295,6 +329,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
     // this doc comment is overridden to remove the reference to collections
     // greater in size than Integer.MAX_VALUE
+
     /**
      * Returns the number of elements in this queue.
      *
@@ -306,6 +341,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
     // this doc comment is a modified copy of the inherited doc comment,
     // without the reference to unlimited queues.
+
     /**
      * Returns the number of additional elements that this queue can ideally
      * (in the absence of memory or resource constraints) accept without
@@ -324,6 +360,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Inserts the specified element at the tail of this queue, waiting if
      * necessary for space to become available.
+     * 插入指定元素在队列尾部，必要时需要等待空间变得可用
      *
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
@@ -336,6 +373,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         Node<E> node = new Node<E>(e);
         final ReentrantLock putLock = this.putLock;
         final AtomicInteger count = this.count;
+        //写入数据加锁，避免多线程同时写入
         putLock.lockInterruptibly();
         try {
             /*
@@ -345,17 +383,40 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
              * out by lock), and we (or some other waiting put) are
              * signalled if it ever changes from capacity. Similarly
              * for all other uses of count in other wait guards.
+             * 计数器被使用等待示警即使它没有被锁保护
+             * 它工作是因为计数器能够被减少在这个点（所有其他put被阻塞通过锁）
+             * 并且我们，或者其他等待put被唤醒，如果他被从容器中修改。
+             * 相似的，对于其他使用计数器等待示警
+             *
+             * 计数器的数量等于队列的容量，TODO 需要等待 notFull锁被唤醒？
+             *
+             * 获取元素未满锁
+             *
+             *
+             * TODO 如果元素满了之后，notFull不会被释放，会一直处于等待状态？
+             * 队列满了，需要等待未满锁的释放
+             * await可以释放putLock锁
              */
             while (count.get() == capacity) {
                 notFull.await();
             }
+
             enqueue(node);
+            //返回的是旧值
             c = count.getAndIncrement();
+
+            //说明队列没有满，尝试唤醒一个put等待线程  TMD为什么要尝试啊，未满的时候就不需要等待锁，在这里唤醒有TMD的卵用啊
             if (c + 1 < capacity)
+                //元素未满锁被唤醒
+                // TODO 为什么这里也要TMD被唤醒？ 在take里面唤醒不久好了吗？
+                // 如果当前有大批量线程由于容器已满被   notFull.await(); 阻塞，然后执行clear 方法，只会有一个线程可以继续往下执行，当操作完成之后，此时容器未满，如果不唤醒其他线程的话，
+                // 那么以前的线程一直被阻塞，只有这个数据被取出或者被清除才能唤醒其他的线程
+                //但是 TMD 添加了 putLock 锁，说明只有一个线程才会处于等待状态，只有一个线程等待，不能让其他的线程take元素之后唤醒啊
                 notFull.signal();
         } finally {
             putLock.unlock();
         }
+        //说明添加了第一个元素，唤醒一个take等待的线程
         if (c == 0)
             signalNotEmpty();
     }
@@ -365,12 +426,12 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * necessary up to the specified wait time for space to become available.
      *
      * @return {@code true} if successful, or {@code false} if
-     *         the specified waiting time elapses before space is available
+     * the specified waiting time elapses before space is available
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      */
     public boolean offer(E e, long timeout, TimeUnit unit)
-        throws InterruptedException {
+            throws InterruptedException {
 
         if (e == null) throw new NullPointerException();
         long nanos = unit.toNanos(timeout);
@@ -438,16 +499,23 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock takeLock = this.takeLock;
         takeLock.lockInterruptibly();
         try {
+            //说明队列中无数据，等待锁
             while (count.get() == 0) {
                 notEmpty.await();
             }
             x = dequeue();
             c = count.getAndDecrement();
             if (c > 1)
+                // 通知队列中存在数据，唤醒消耗线程
                 notEmpty.signal();
         } finally {
             takeLock.unlock();
         }
+        //如果队列中数据先前已经满了，说明现在已经不满了，则唤醒生产线程
+        // TMD 你都消费了，肯定不满了，要通知生产线程继续生产，为什么还要加这个条件判断？
+        // TODO 因为是生产时会对 c == capacity 进行判断，如果满了，则执行 notFull.await,
+        // 消费者 判断 c == capacity 说明是队列满了之后第一个消费的，那么就通知生产线程可以继续生产了
+        // 不用每一次消费都通知生产线程，因为生产线程内部发现队列未满时，会自己进行通知
         if (c == capacity)
             signalNotFull();
         return x;
@@ -630,8 +698,8 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * The following code can be used to dump the queue into a newly
      * allocated array of {@code String}:
      *
-     *  <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
-     *
+     * <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
+     * <p>
      * Note that {@code toArray(new Object[0])} is identical in function to
      * {@code toArray()}.
      *
@@ -639,9 +707,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      *          be stored, if it is big enough; otherwise, a new array of the
      *          same runtime type is allocated for this purpose
      * @return an array containing all of the elements in this queue
-     * @throws ArrayStoreException if the runtime type of the specified array
-     *         is not a supertype of the runtime type of every element in
-     *         this queue
+     * @throws ArrayStoreException  if the runtime type of the specified array
+     *                              is not a supertype of the runtime type of every element in
+     *                              this queue
      * @throws NullPointerException if the specified array is null
      */
     @SuppressWarnings("unchecked")
@@ -650,12 +718,12 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         try {
             int size = count.get();
             if (a.length < size)
-                a = (T[])java.lang.reflect.Array.newInstance
-                    (a.getClass().getComponentType(), size);
+                a = (T[]) java.lang.reflect.Array.newInstance
+                        (a.getClass().getComponentType(), size);
 
             int k = 0;
             for (Node<E> p = head.next; p != null; p = p.next)
-                a[k++] = (T)p.item;
+                a[k++] = (T) p.item;
             if (a.length > k)
                 a[k] = null;
             return a;
@@ -673,7 +741,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
             StringBuilder sb = new StringBuilder();
             sb.append('[');
-            for (;;) {
+            for (; ; ) {
                 E e = p.item;
                 sb.append(e == this ? "(this Collection)" : e);
                 p = p.next;
@@ -803,13 +871,13 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
         /**
          * Returns the next live successor of p, or null if no such.
-         *
+         * <p>
          * Unlike other traversal methods, iterators need to handle both:
          * - dequeued nodes (p.next == p)
          * - (possibly multiple) interior removed nodes (p.item == null)
          */
         private Node<E> nextNode(Node<E> p) {
-            for (;;) {
+            for (; ; ) {
                 Node<E> s = p.next;
                 if (s == p)
                     return head.next;
@@ -855,7 +923,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
-    /** A customized variant of Spliterators.IteratorSpliterator */
+    /**
+     * A customized variant of Spliterators.IteratorSpliterator
+     */
     static final class LBQSpliterator<E> implements Spliterator<E> {
         static final int MAX_BATCH = 1 << 25;  // max batch array size;
         final LinkedBlockingQueue<E> queue;
@@ -863,12 +933,15 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         int batch;          // batch size for splits
         boolean exhausted;  // true when no more nodes
         long est;           // size estimate
+
         LBQSpliterator(LinkedBlockingQueue<E> queue) {
             this.queue = queue;
             this.est = queue.size();
         }
 
-        public long estimateSize() { return est; }
+        public long estimateSize() {
+            return est;
+        }
 
         public Spliterator<E> trySplit() {
             Node<E> h;
@@ -876,8 +949,8 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
             int b = batch;
             int n = (b <= 0) ? 1 : (b >= MAX_BATCH) ? MAX_BATCH : b + 1;
             if (!exhausted &&
-                ((h = current) != null || (h = q.head.next) != null) &&
-                h.next != null) {
+                    ((h = current) != null || (h = q.head.next) != null) &&
+                    h.next != null) {
                 Object[] a = new Object[n];
                 int i = 0;
                 Node<E> p = current;
@@ -895,14 +968,13 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
                 if ((current = p) == null) {
                     est = 0L;
                     exhausted = true;
-                }
-                else if ((est -= i) < 0L)
+                } else if ((est -= i) < 0L)
                     est = 0L;
                 if (i > 0) {
                     batch = i;
                     return Spliterators.spliterator
-                        (a, 0, i, Spliterator.ORDERED | Spliterator.NONNULL |
-                         Spliterator.CONCURRENT);
+                            (a, 0, i, Spliterator.ORDERED | Spliterator.NONNULL |
+                                    Spliterator.CONCURRENT);
                 }
             }
             return null;
@@ -965,7 +1037,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
         public int characteristics() {
             return Spliterator.ORDERED | Spliterator.NONNULL |
-                Spliterator.CONCURRENT;
+                    Spliterator.CONCURRENT;
         }
     }
 
@@ -978,11 +1050,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * <p>The {@code Spliterator} reports {@link Spliterator#CONCURRENT},
      * {@link Spliterator#ORDERED}, and {@link Spliterator#NONNULL}.
      *
-     * @implNote
-     * The {@code Spliterator} implements {@code trySplit} to permit limited
-     * parallelism.
-     *
      * @return a {@code Spliterator} over the elements in this queue
+     * @implNote The {@code Spliterator} implements {@code trySplit} to permit limited
+     * parallelism.
      * @since 1.8
      */
     public Spliterator<E> spliterator() {
@@ -999,7 +1069,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * followed by a null
      */
     private void writeObject(java.io.ObjectOutputStream s)
-        throws java.io.IOException {
+            throws java.io.IOException {
 
         fullyLock();
         try {
@@ -1019,13 +1089,14 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
     /**
      * Reconstitutes this queue from a stream (that is, deserializes it).
+     *
      * @param s the stream
      * @throws ClassNotFoundException if the class of a serialized object
-     *         could not be found
-     * @throws java.io.IOException if an I/O error occurs
+     *                                could not be found
+     * @throws java.io.IOException    if an I/O error occurs
      */
     private void readObject(java.io.ObjectInputStream s)
-        throws java.io.IOException, ClassNotFoundException {
+            throws java.io.IOException, ClassNotFoundException {
         // Read in capacity, and any hidden stuff
         s.defaultReadObject();
 
@@ -1033,9 +1104,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         last = head = new Node<E>(null);
 
         // Read in all elements and place in queue
-        for (;;) {
+        for (; ; ) {
             @SuppressWarnings("unchecked")
-            E item = (E)s.readObject();
+            E item = (E) s.readObject();
             if (item == null)
                 break;
             add(item);
