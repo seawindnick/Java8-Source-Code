@@ -53,6 +53,12 @@ import java.util.Spliterator;
  * are inserted at the tail of the queue, and the queue retrieval
  * operations obtain elements at the head of the queue.
  *
+ * 一个有界的阻塞队列，通过数组实现
+ * 队列 遵循先进先出原则
+ * 头节点是在这个队列中时间最长的元素
+ * 队列尾部的元素是在队列中时间最短的元素
+ * 新元素添加在队列的尾部，队列遍历操作从头获开始遍历队列
+ *
  * <p>This is a classic &quot;bounded buffer&quot;, in which a
  * fixed-sized array holds elements inserted by producers and
  * extracted by consumers.  Once created, the capacity cannot be
@@ -60,12 +66,22 @@ import java.util.Spliterator;
  * will result in the operation blocking; attempts to {@code take} an
  * element from an empty queue will similarly block.
  *
+ * 一个固定大小的队列保证元素通过程序插入和消费提取
+ * 一次创建，容量不能被改变
+ * 尝试在一个满的队列中添加元素将会导致操作阻塞
+ * 尝试在一个空的队列中获取元素，将会有相同的阻塞
+ *
  * <p>This class supports an optional fairness policy for ordering
  * waiting producer and consumer threads.  By default, this ordering
  * is not guaranteed. However, a queue constructed with fairness set
  * to {@code true} grants threads access in FIFO order. Fairness
  * generally decreases throughput but reduces variability and avoids
  * starvation.
+ *
+ * 支持公平策略保证等待者和消费者的线程
+ * 默认的，这种排序是不保证的
+ * 一个队列构造器使用 公平的 保证线程按照先进先出的策略通过
+ * 公平通常减少通过量，但是减少可变形并且避免饥饿等待
  *
  * <p>This class and its iterator implement all of the
  * <em>optional</em> methods of the {@link Collection} and {@link
@@ -153,6 +169,10 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Inserts element at current put position, advances, and signals.
      * Call only when holding lock.
+     * 填充元素
+     * 在putIndex位置上进行填充，然后向后移动一位
+     *  puntIndex位置就是下一次元素插入的位置，如果 ++putIndex == 数组长度，重置0角标再开始
+     *  队列元素数量++
      */
     private void enqueue(E x) {
         // assert lock.getHoldCount() == 1;
@@ -168,6 +188,12 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Extracts element at current take position, advances, and signals.
      * Call only when holding lock.
+     *
+     * 获取元素
+     * 从takeIndex角标位置获取元素，并将tekeIndex位置元素置为null
+     * 获取元素之后 takeIndex角标位置后移，达到最大边界之后 从0角标位置重新开始
+     * 队列元素数量--
+     *
      */
     private E dequeue() {
         // assert lock.getHoldCount() == 1;
@@ -189,12 +215,17 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * Deletes item at array index removeIndex.
      * Utility for remove(Object) and iterator.remove.
      * Call only when holding lock.
+     *
+     * 如果删除元素的位置是获取操作的头位置时，头位置元素设置为null,集合数量--，takeIndex角标后移
+     * 非takeIndex位置，将removeIndex位置元素依次向前移动
+     *
      */
     void removeAt(final int removeIndex) {
         // assert lock.getHoldCount() == 1;
         // assert items[removeIndex] != null;
         // assert removeIndex >= 0 && removeIndex < items.length;
         final Object[] items = this.items;
+        // 要删除的元素的位置就是队列头的位置
         if (removeIndex == takeIndex) {
             // removing front item; just advance
             items[takeIndex] = null;
@@ -234,6 +265,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      *
      * @param capacity the capacity of this queue
      * @throws IllegalArgumentException if {@code capacity < 1}
+     *
+     * 默认非公平策略，公平策略，非公平策略用于竞争可重入锁是公平模式还是非公平模式
      */
     public ArrayBlockingQueue(int capacity) {
         this(capacity, false);
@@ -273,6 +306,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      *         {@code c.size()}, or less than 1.
      * @throws NullPointerException if the specified collection or any
      *         of its elements are null
+     *
+     *
      */
     public ArrayBlockingQueue(int capacity, boolean fair,
                               Collection<? extends E> c) {
@@ -280,6 +315,10 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
 
         final ReentrantLock lock = this.lock;
         lock.lock(); // Lock only for visibility, not mutual exclusion
+        //如果集合元素数量 > 申请的容量，会抛出异常信息
+        // 并会校验集合元素是否为null
+
+        //TODO 对于数组角标越界，为什么不能提前判断传入集合的长度与申请容量的大小关系？
         try {
             int i = 0;
             try {
@@ -322,10 +361,12 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        // 不允许null元素
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            //容量满了，直接返回false
             if (count == items.length)
                 return false;
             else {
@@ -349,6 +390,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
+            //容量满了，阻塞操作
             while (count == items.length)
                 notFull.await();
             enqueue(e);
@@ -366,7 +408,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException {@inheritDoc}
      */
     public boolean offer(E e, long timeout, TimeUnit unit)
-        throws InterruptedException {
+            throws InterruptedException {
 
         checkNotNull(e);
         long nanos = unit.toNanos(timeout);
@@ -622,7 +664,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
             final int len = a.length;
             if (len < count)
                 a = (T[])java.lang.reflect.Array.newInstance(
-                    a.getClass().getComponentType(), count);
+                        a.getClass().getComponentType(), count);
             int n = items.length - takeIndex;
             if (count <= n)
                 System.arraycopy(items, takeIndex, a, 0, count);
@@ -1136,7 +1178,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
                 // how far takeIndex has advanced since the previous
                 // operation of this iterator
                 long dequeues = (cycles - prevCycles) * len
-                    + (takeIndex - prevTakeIndex);
+                        + (takeIndex - prevTakeIndex);
 
                 // Check indices for invalidation
                 if (invalidated(lastRet, prevTakeIndex, dequeues, len))
@@ -1323,7 +1365,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
             if (removedIndex < takeIndex)
                 cycleDiff++;
             final int removedDistance =
-                (cycleDiff * len) + (removedIndex - prevTakeIndex);
+                    (cycleDiff * len) + (removedIndex - prevTakeIndex);
             // assert removedDistance >= 0;
             int cursor = this.cursor;
             if (cursor >= 0) {
@@ -1410,8 +1452,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
     public Spliterator<E> spliterator() {
         return Spliterators.spliterator
-            (this, Spliterator.ORDERED | Spliterator.NONNULL |
-             Spliterator.CONCURRENT);
+                (this, Spliterator.ORDERED | Spliterator.NONNULL |
+                        Spliterator.CONCURRENT);
     }
 
 }
