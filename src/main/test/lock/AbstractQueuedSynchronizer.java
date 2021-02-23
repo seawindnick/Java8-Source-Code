@@ -1,5 +1,4 @@
-package java.util.concurrent.locks;
-/*
+package lock;/*
  * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
  *
  *
@@ -587,8 +586,8 @@ public abstract class AbstractQueuedSynchronizer
      *             对其有效的后继节点1调用 LockSupport.unpark 唤醒节点对应的线程，将节点1的thread设置为null, 并将其作为头节点
 
 
-    当线程释放锁成功后，从node开始唤醒同步队列中的节点
-    通过唤醒机制，保证线程不会一直在同步队列中阻塞等待
+        当线程释放锁成功后，从node开始唤醒同步队列中的节点
+        通过唤醒机制，保证线程不会一直在同步队列中阻塞等待
      */
     private void unparkSuccessor(Node node) {
         /*

@@ -50,6 +50,16 @@ package java.util.concurrent;
  * declare types of the form {@code Future<?>} and
  * return {@code null} as a result of the underlying task.
  *
+ * 代表异步计算返回结果
+ * 方法提供检查是否计算完成，并等待其完成，检索计算结果
+ * 结果能够被获取 使用方法 get 当这个计算完成时，如果需要阻塞直到其完成
+ * 执行cancel方法是取消，额外的方法提供确认一个任务是否正常完成或者取消
+ * 一旦一个计算已经完成，这个计算不能被取消
+ * 如果需要使用 Future 去为了可以被取消性，但是不提供可使用的结果
+ * 可以声明类型 Future 返回null作为一个潜在任务的返回值
+ *
+ *
+ *
  * <p>
  * <b>Sample Usage</b> (Note that the following classes are all
  * made-up.)
@@ -82,6 +92,8 @@ package java.util.concurrent;
  *       return searcher.search(target);
  *   }});
  * executor.execute(future);}</pre>
+ *
+ * FutureTask 是一个实现 Future，Runnable
  *
  * <p>Memory consistency effects: Actions taken by the asynchronous computation
  * <a href="package-summary.html#MemoryVisibility"> <i>happen-before</i></a>

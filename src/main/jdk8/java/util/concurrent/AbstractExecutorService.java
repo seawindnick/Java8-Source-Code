@@ -66,7 +66,7 @@ import java.util.*;
  * }}</pre>
  *
  * @since 1.5
- * @author Doug Lea
+ * @author Doug Lea`
  */
 public abstract class AbstractExecutorService implements ExecutorService {
 
@@ -97,7 +97,7 @@ public abstract class AbstractExecutorService implements ExecutorService {
      * the callable's result as its result and provide for
      * cancellation of the underlying task
      * @since 1.6
-     */
+     */ 
     protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
         return new FutureTask<T>(callable);
     }

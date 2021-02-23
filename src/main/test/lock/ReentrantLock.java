@@ -1,4 +1,4 @@
-package java.util.concurrent.locks;/*
+/*
  * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
  *
  *
@@ -33,6 +33,7 @@ package java.util.concurrent.locks;/*
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+package lock;
 
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;

@@ -499,6 +499,7 @@ public class Executors {
 
     /**
      * A callable that runs given task and returns given result
+     * TODO 其实就是代理，返回一个代理的 Callable 子类对象
      */
     static final class RunnableAdapter<T> implements Callable<T> {
         final Runnable task;
