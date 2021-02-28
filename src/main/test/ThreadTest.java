@@ -32,8 +32,8 @@ public class ThreadTest {
 
         @Override
         public void run() {
-            super.run();
-            super.getTh
+//            super.run();
+//            super.getTh
 
         }
     }

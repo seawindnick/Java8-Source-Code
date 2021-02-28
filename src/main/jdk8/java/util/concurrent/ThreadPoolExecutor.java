@@ -45,6 +45,8 @@ import java.util.*;
  * one of possibly several pooled threads, normally configured
  * using {@link Executors} factory methods.
  *
+ * 执行所有已经提交的任务使用一个可能的服务线程池，通常配置使用 Executors 工厂方法
+ *
  * <p>Thread pools address two different problems: they usually
  * provide improved performance when executing large numbers of
  * asynchronous tasks, due to reduced per-task invocation overhead,
@@ -52,6 +54,11 @@ import java.util.*;
  * including threads, consumed when executing a collection of tasks.
  * Each {@code ThreadPoolExecutor} also maintains some basic
  * statistics, such as the number of completed tasks.
+ *
+ * 线程池两个问题
+ * 他们经常提供改进的性能当执行大量异步任务，因为减少了每个任务的执行开销
+ * 他们提供一个代表有界和管理的资源,包括线程，消费当执行一组任务是
+ * 所有的ThreadPoolExecutor 都包含一些基础的统计数据 如已经完成任务的数据
  *
  * <p>To be useful across a wide range of contexts, this class
  * provides many adjustable parameters and extensibility
@@ -65,15 +72,21 @@ import java.util.*;
  * scenarios. Otherwise, use the following guide when manually
  * configuring and tuning this class:
  *
+ * 在一个宽的范围内是有用的，这个类提供一些可调的参数和可扩展性的构造
+ * 当然，程序被督促去使用更多的方便线程池工厂方法
+ * 这些与配置设置一些常见的使用场景，否则，在手动调优和配置时，跟随以下指南
+ *
  * <dl>
  *
  * <dt>Core and maximum pool sizes</dt>
- *
+ * 核心和最大池大小
  * <dd>A {@code ThreadPoolExecutor} will automatically adjust the
  * pool size (see {@link #getPoolSize})
  * according to the bounds set by
  * corePoolSize (see {@link #getCorePoolSize}) and
  * maximumPoolSize (see {@link #getMaximumPoolSize}).
+ *
+ * 一个线程池会自动调整池子大小，根据边界设置一个核心线程池大小和最大线程池大小
  *
  * When a new task is submitted in method {@link #execute(Runnable)},
  * and fewer than corePoolSize threads are running, a new thread is
@@ -89,6 +102,13 @@ import java.util.*;
  * dynamically using {@link #setCorePoolSize} and {@link
  * #setMaximumPoolSize}. </dd>
  *
+ * 当一个新的任务提交使用方法 execute，并且少于核心线程数的线程正在运行，一个新的线程被创建去处理这个请求
+ * 即使其他工作的线程是空闲的
+ * 如果超过核心线程数但是比最大线程数少的线程正在运行，一个新的线程被创建如果队列满了
+ * 通过这种方式设置核心线程数和最大线程数，可以创建一个混合线程池
+ * 通过设置maximumPoolSize在本质上设置一个不受限制的值，可以i允许线程去适应一个任意数量的并发任务
+ * 更多情况下，核心线程和最大线程数量仅仅在构造时被设置，但是也可以在使用时进行动态设置
+ *
  * <dt>On-demand construction</dt>
  *
  * <dd>By default, even core threads are initially created and
@@ -96,6 +116,10 @@ import java.util.*;
  * dynamically using method {@link #prestartCoreThread} or {@link
  * #prestartAllCoreThreads}.  You probably want to prestart threads if
  * you construct the pool with a non-empty queue. </dd>
+ *
+ * 默认的，甚至核心线程在初始化时被创建并且当一个新的任务到达时开始
+ * 但是它可以被动态覆盖，可能想要预先设置线程数如果在创建线程池使用空的队列
+ *
  *
  * <dt>Creating new threads</dt>
  *
@@ -114,6 +138,14 @@ import java.util.*;
  * take effect in a timely manner, and a shutdown pool may remain in a
  * state in which termination is possible but not completed.</dd>
  *
+ * 一个新的线程创建使用一个线程工厂，如果没有其他的指定
+ * Executors.defaultThreadFactory 被使用，创建线程都在同一个 ThreadGroup 并且有一些优先级和无守护线程的状态
+ * 通过支持不同的线程工厂，可以定义线程的名称，线程租，优先级，守护状态等等
+ * 如果一个线程工厂创建线程失败当请求返回null从 newThread 方法，这个线程池将继续，但是可能不能运行任何任务
+ * 线程需要拥有 modifyThread
+ * 如果工作线程或者其他线程使用这个线程池没有拥有这个权限，服务也许会被退化，
+ * 配置改变可能无法及时生效， 并且关闭线程池也许仍然有一个状态当终端也许已经完成
+ *
  * <dt>Keep-alive times</dt>
  *
  * <dd>If the pool currently has more than corePoolSize threads,
@@ -131,28 +163,42 @@ import java.util.*;
  * apply this time-out policy to core threads as well, so long as the
  * keepAliveTime value is non-zero. </dd>
  *
+ * 如果一个线程池当前有超过核心线程数的线程，多余的线程将会终止如果他们是空闲的超过 keepAliveTime
+ * 这提供一个意义去减少资源消费，当这个线程池不是被活跃使用的
+ * 如果这个线程池在随后变得活跃，新的线程将会被创建，这个参数能够被动态改变
+ * 使用Long.MAX_VALUE 有效的控制线程在关闭之前终止
+ * 默认的，存活时间策略应用仅仅当有超过核心线程的线程数
+ * 但是方法allowCoreThreadTimeOut 能够被使用在核心线程的超时管理，存活时间是一个非0数
+ *
  * <dt>Queuing</dt>
  *
  * <dd>Any {@link BlockingQueue} may be used to transfer and hold
- * submitted tasks.  The use of this queue interacts with pool sizing:
+ * submitted tasks.  the use of this queue interacts with pool sizing:
  *
+ * 任何队列都会被用在转移和持有任务，此队列与线程池大小相互影响
  * <ul>
  *
  * <li> If fewer than corePoolSize threads are running, the Executor
  * always prefers adding a new thread
  * rather than queuing.</li>
  *
+ * 如果少于核心线程数在运行，Executor 经常偏向增加一个新的线程
+ *
  * <li> If corePoolSize or more threads are running, the Executor
  * always prefers queuing a request rather than adding a new
  * thread.</li>
+ *
+ * 如果核心线程数或者更多的线程在运行，Executor 请求排队与创建一个线程相比，偏向于请求排队
  *
  * <li> If a request cannot be queued, a new thread is created unless
  * this would exceed maximumPoolSize, in which case, the task will be
  * rejected.</li>
  *
+ * 如果一个请求不能被排队，一个新的线程被创建除非它能够超过最大线程数量，这种情况下，这个任务将被拒绝
  * </ul>
  *
  * There are three general strategies for queuing:
+ * 三种排队策略
  * <ol>
  *
  * <li> <em> Direct handoffs.</em> A good default choice for a work
@@ -165,6 +211,13 @@ import java.util.*;
  * avoid rejection of new submitted tasks. This in turn admits the
  * possibility of unbounded thread growth when commands continue to
  * arrive on average faster than they can be processed.  </li>
+ *
+ * 直接传递，一个好的默认选择工作队列是 SynchronousQueue，它能传递 任务到线程不需要任何其他保证
+ * 一个尝试队列一个任务将会是失败，如果没有线程能立即去执行它
+ * 因此一个新的线程将会被创建，这个策略避免锁定，当持有者设置请求 也许有一些内部的依赖
+ * 直接传递通常请求没有边界的 最大线程数去避免拒绝一个新提交的任务
+ * 无边界的线程增长当命令继续到达 在平均超过他们能够处理的
+ *
  *
  * <li><em> Unbounded queues.</em> Using an unbounded queue (for
  * example a {@link LinkedBlockingQueue} without a predefined
@@ -179,6 +232,12 @@ import java.util.*;
  * unbounded work queue growth when commands continue to arrive on
  * average faster than they can be processed.  </li>
  *
+ * 无界队列 使用无界队列将会造成新的任务去等待队列当所有的核心线程数都是忙碌的时候
+ * 最大线程数量没有任何作用，这个将会被适当的 当其他独立的所有的线程都完成
+ * 因此任务不能影响所有其他
+ *
+ * 在web页面服务中，这种排队时候有效的，在平滑端在的请求中，当命令平均速度以超过处理速度陆续到达时，工作队列可能会无限增长
+ *
  * <li><em>Bounded queues.</em> A bounded queue (for example, an
  * {@link ArrayBlockingQueue}) helps prevent resource exhaustion when
  * used with finite maximumPoolSizes, but can be more difficult to
@@ -191,6 +250,12 @@ import java.util.*;
  * generally requires larger pool sizes, which keeps CPUs busier but
  * may encounter unacceptable scheduling overhead, which also
  * decreases throughput.  </li>
+ *
+ * 有界队列，一个有界队列帮助防止资源耗尽 当使用有限的最大线程池数量，但是更难以调整和控制
+ * 队列的长度和线程池最大数量也许会相互转换：使用大的队列和小的线程池 小的CPU使用，OS资源和全局上下文开销，但是会引起低的吞吐量
+ * 如果任务经常阻塞，系统也许会为更多的线程调度时间
+ * 使用小的队列通常要求大的线程池，会倒是CPU忙碌但是也许会遇到不可接受的调度开销，也会降低吞吐量
+ *
  *
  * </ol>
  *
@@ -207,24 +272,39 @@ import java.util.*;
  * method of its {@link RejectedExecutionHandler}.  Four predefined handler
  * policies are provided:
  *
+ * 任务提交使用方法execute 将会被拒绝当线程池已经被关闭，并且当线程池使用有界的 最大线程数和工作队列容量
+ * 并且是饱和的，无论哪种case,execute方法执行rejectedExecution方法
+ * 四种预定义的策略被提供
+ *
  * <ol>
  *
  * <li> In the default {@link ThreadPoolExecutor.AbortPolicy}, the
  * handler throws a runtime {@link RejectedExecutionException} upon
  * rejection. </li>
  *
+ * 默认的 AbortPolicy ，这个处理抛出一个运行时异常在拒绝时
+ *
  * <li> In {@link ThreadPoolExecutor.CallerRunsPolicy}, the thread
  * that invokes {@code execute} itself runs the task. This provides a
  * simple feedback control mechanism that will slow down the rate that
  * new tasks are submitted. </li>
  *
+ * 调用线程运行，调用 execute 方法的线程 自身运行 这个任务
+ * 这个提供一个简单的回调控制机制，将会减慢这个速度当新任务提交的是互殴
+ *
  * <li> In {@link ThreadPoolExecutor.DiscardPolicy}, a task that
  * cannot be executed is simply dropped.  </li>
+ *
+ * 一个任务不能被执行被丢弃掉
+ *
+ * 与AbortPolicy 差异是不抛出异常
  *
  * <li>In {@link ThreadPoolExecutor.DiscardOldestPolicy}, if the
  * executor is not shut down, the task at the head of the work queue
  * is dropped, and then execution is retried (which can fail again,
  * causing this to be repeated.) </li>
+ *
+ * 如果线程池没有关闭，在工作队列头节点的任务将会被丢弃，并且然后重试执行，如果还失败，重复执行
  *
  * </ol>
  *
@@ -232,6 +312,9 @@ import java.util.*;
  * RejectedExecutionHandler} classes. Doing so requires some care
  * especially when policies are designed to work only under particular
  * capacity or queuing policies. </dd>
+ *
+ * 这是可能的去定义和使用其他种类的拒绝策略类，特别是执行一些关键的当策略设计去工作仅仅特定的容量和排队策略
+ *
  *
  * <dt>Hook methods</dt>
  *
@@ -245,8 +328,16 @@ import java.util.*;
  * any special processing that needs to be done once the Executor has
  * fully terminated.
  *
+ * 这个类提供保护可覆盖的 beforeExecute ， afterExecute 方法，能够被调用在所有任务执行前和执行后
+ * 这些能够被用在去操作执行环境，重新初始化ThreadLocals，收集静态变量或者添加一些日志实例
+ * 额外的 方法 terminated 能够被覆盖去执行任何指定的程序 需要在线程池全部中断之后一次性做的事情
+ *
+ *
+ *
  * <p>If hook or callback methods throw exceptions, internal worker
  * threads may in turn fail and abruptly terminate.</dd>
+ *
+ * 如果 hook 或者回调方法抛出异常，内部的工作线程也许会返回失败 中断
  *
  * <dt>Queue maintenance</dt>
  *
@@ -256,6 +347,9 @@ import java.util.*;
  * {@link #remove(Runnable)} and {@link #purge} are available to
  * assist in storage reclamation when large numbers of queued tasks
  * become cancelled.</dd>
+ *
+ * 方法getQueue 允许访问工作队列，用于监控和调试
+ * 强烈反对将这些方法用于其他地方，两个提供方法，移除和清洗 是使用的去协助一个强壮的回收 当大量队列任务被取消
  *
  * <dt>Finalization</dt>
  *
@@ -267,6 +361,9 @@ import java.util.*;
  * keep-alive times, using a lower bound of zero core threads and/or
  * setting {@link #allowCoreThreadTimeOut(boolean)}.  </dd>
  *
+ * 一个线程池没有长的引用在程序中，并且有没有剩余的线程将会被自动关闭
+ * 如果想要确保没有引用的线程池被回收 即使用用户忘记执行 shutdown，然后你需要安排不使用的线程最终控制
+ * 通过设置适当的存活时间，使用低的边界 ，0核心线程 并且设置允许核心线程销毁
  * </dl>
  *
  * <p><b>Extension example</b>. Most extensions of this class
@@ -323,12 +420,19 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      *   workerCount, indicating the effective number of threads
      *   runState,    indicating whether running, shutting down etc
      *
+     * 线程池控制状态，是一个原子Integer类型，包括两个概念上的字段
+     * 工作线程的数量 介绍有效线程的数量
+     * 运行状态 介绍是否运行，停止等待
+     *
+     *
      * In order to pack them into one int, we limit workerCount to
      * (2^29)-1 (about 500 million) threads rather than (2^31)-1 (2
      * billion) otherwise representable. If this is ever an issue in
      * the future, the variable can be changed to be an AtomicLong,
      * and the shift/mask constants below adjusted. But until the need
      * arises, this code is a bit faster and simpler using an int.
+     *
+     *  为了包含
      *
      * The workerCount is the number of workers that have been
      * permitted to start and not permitted to stop.  The value may be

@@ -45,11 +45,17 @@ import java.util.concurrent.locks.ReentrantLock;
  * <em>cyclic</em> because it can be re-used after the waiting threads
  * are released.
  *
+ * 一个同步允许设置的线程都等待 彼此到达的障碍点
+ * CyclicBarriers 是一个有用的程序 涉及一个混合长度的多线程，必须等待其他
+ * 因为它是可以被重复使用的，在这些等待线程释放之后
+ *
  * <p>A {@code CyclicBarrier} supports an optional {@link Runnable} command
  * that is run once per barrier point, after the last thread in the party
  * arrives, but before any threads are released.
  * This <em>barrier action</em> is useful
  * for updating shared-state before any of the parties continue.
+ *
+ * 支持一个 Runnable 通用操作
  *
  * <p><b>Sample usage:</b> Here is an example of using a barrier in a
  * parallel decomposition design:
@@ -147,6 +153,13 @@ public class CyclicBarrier {
      * and all the rest are either broken or tripped.
      * There need not be an active generation if there has been a break
      * but no subsequent reset.
+     *
+     *
+     * barrier 的每次使用 都是一个新生成的实例
+     * 这个 generation 改变 无论 这个屏障被打破或者被重置
+     * 这里有一些 generations 相关的 伴随着线程使用屏障，根据不确定的道路
+     * 这个锁也许分配等待线程，但一次只能激活一个应用
+     * 如果中断之后没有发生重置，则不需要激活生成
      */
     private static class Generation {
         boolean broken = false;
@@ -167,6 +180,9 @@ public class CyclicBarrier {
      * Number of parties still waiting. Counts down from parties to 0
      * on each generation.  It is reset to parties on each new
      * generation or when broken.
+     *
+     * 仍有多少个在等待，数量下降到0在所有的
+     * 可以被重置
      */
     private int count;
 
@@ -203,15 +219,18 @@ public class CyclicBarrier {
         try {
             final Generation g = generation;
 
+            // 执行屏障被打破
             if (g.broken)
                 throw new BrokenBarrierException();
 
+            //执行线程被中断，打破屏障，唤醒其他线程，不能够再被使用
             if (Thread.interrupted()) {
                 breakBarrier();
                 throw new InterruptedException();
             }
 
             int index = --count;
+            // 如果需要等待者的次数下降到0，唤醒其他等待者，计数器重置
             if (index == 0) {  // tripped
                 boolean ranAction = false;
                 try {
@@ -231,11 +250,13 @@ public class CyclicBarrier {
             for (;;) {
                 try {
                     if (!timed)
+                        // 条件队列等待
                         trip.await();
                     else if (nanos > 0L)
                         nanos = trip.awaitNanos(nanos);
                 } catch (InterruptedException ie) {
                     if (g == generation && ! g.broken) {
+                        //重置栅栏信息，唤醒其他等待者
                         breakBarrier();
                         throw ie;
                     } else {

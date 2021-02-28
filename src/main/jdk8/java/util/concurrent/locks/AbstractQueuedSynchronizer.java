@@ -1950,6 +1950,8 @@ public abstract class AbstractQueuedSynchronizer
      *
      * @param node the condition node for this wait
      * @return previous sync state
+     *
+     * 释放同步锁
      */
     final int fullyRelease(Node node) {
         boolean failed = true;

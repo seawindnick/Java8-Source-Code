@@ -34,6 +34,8 @@
  */
 
 package java.util.concurrent;
+
+
 import java.util.Collection;
 import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
@@ -174,20 +176,34 @@ public class Semaphore implements java.io.Serializable {
             return getState();
         }
 
+        /**
+         * 非公平获取锁 如果一旦足够获取，就立即进行获取操作
+         * @param acquires
+         * @return
+         */
         final int nonfairTryAcquireShared(int acquires) {
             for (;;) {
                 int available = getState();
                 int remaining = available - acquires;
+                /**
+                 * 如果 remaining < 0 说明资源不够进行申请，返回小于0的值，让其进行等待
+                 */
                 if (remaining < 0 ||
                     compareAndSetState(available, remaining))
                     return remaining;
             }
         }
 
+        /**
+         * 释放共享锁信息
+         * @param releases
+         * @return
+         */
         protected final boolean tryReleaseShared(int releases) {
             for (;;) {
                 int current = getState();
                 int next = current + releases;
+                //溢出
                 if (next < current) // overflow
                     throw new Error("Maximum permit count exceeded");
                 if (compareAndSetState(current, next))
@@ -242,10 +258,16 @@ public class Semaphore implements java.io.Serializable {
 
         protected int tryAcquireShared(int acquires) {
             for (;;) {
+                // 第一个等待节点不是自身，不能获取到锁信息
                 if (hasQueuedPredecessors())
                     return -1;
                 int available = getState();
                 int remaining = available - acquires;
+                /**
+                 * 返回值小于0，说明没有获取到锁，加入等待队列
+                 *
+                 * 如果CAS 会继续执行死循环
+                 */
                 if (remaining < 0 ||
                     compareAndSetState(available, remaining))
                     return remaining;

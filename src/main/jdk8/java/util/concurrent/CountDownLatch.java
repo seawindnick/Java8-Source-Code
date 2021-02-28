@@ -40,6 +40,8 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * A synchronization aid that allows one or more threads to wait until
  * a set of operations being performed in other threads completes.
  *
+ * 一个同步助手，允许一个或者多个线程等待，直到一个设置操作变得有权限 在其他线程完成之后
+ *
  * <p>A {@code CountDownLatch} is initialized with a given <em>count</em>.
  * The {@link #await await} methods block until the current count reaches
  * zero due to invocations of the {@link #countDown} method, after which
@@ -47,6 +49,11 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * {@link #await await} return immediately.  This is a one-shot phenomenon
  * -- the count cannot be reset.  If you need a version that resets the
  * count, consider using a {@link CyclicBarrier}.
+ *
+ * 在初始化给定一个数值
+ * await 方法阻塞直到当前计数器变为0 根据 countDown方法
+ * 之后所有等待的线程被释放，并且任何子线程执行
+ * 这是一个一次性的现象，设置计数器不会被重置，如果你需要一个重置的版本，使用CyclicBarrier
  *
  * <p>A {@code CountDownLatch} is a versatile synchronization tool
  * and can be used for a number of purposes.  A
@@ -56,6 +63,10 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * #countDown}.  A {@code CountDownLatch} initialized to <em>N</em>
  * can be used to make one thread wait until <em>N</em> threads have
  * completed some action, or some action has been completed N times.
+ *
+ * CountDownLatch 是一个多功能的同步工具，并且能被适用于多种目的
+ * 初始化一个计数器作为一个简单的开关 所有的线程都执行await操作 直到这个门打开，当一个线程执行 countDown
+ * 一个 CountDownLatch 初始化N个能够被用作 作为一个线程等待直到多个线程完成操作 或者一些动作完成了N次
  *
  * <p>A useful property of a {@code CountDownLatch} is that it
  * doesn't require that threads calling {@code countDown} wait for
@@ -169,14 +180,21 @@ public class CountDownLatch {
             return getState();
         }
 
+        /**
+         * 如果同步器状态是0，表示可以获取到锁
+         * @param acquires
+         * @return
+         */
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
 
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
+            // 计数器值为0的时候进行唤醒操作
             for (;;) {
                 int c = getState();
+                //说明计数器已经都使用完了，已经经历过释放操作，不需要再唤醒别的线程
                 if (c == 0)
                     return false;
                 int nextc = c-1;
@@ -228,6 +246,7 @@ public class CountDownLatch {
      *         while waiting
      */
     public void await() throws InterruptedException {
+        // 获取资源，阻塞等待
         sync.acquireSharedInterruptibly(1);
     }
 
