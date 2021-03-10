@@ -72,13 +72,7 @@ import java.util.function.Supplier;
  * @since   1.2
  */
 
-/**
- * ThreadLocal源码阅读和使用
- *
- * 该类提供了线程局部（thread-local）变量，ThreadLocal不是线程，它是线程的一个本地化对象。
- * 当工作于多线程的对象使用ThreadLocal维护变量时，ThreadLocal为每个使用该变量的线程提供一个变量的副本。
- * 因此每个线程都可以独立使用自己的变量，而不用管其他线程
- */
+
 
 public class ThreadLocal<T> {
     /**
@@ -91,7 +85,6 @@ public class ThreadLocal<T> {
      * are used by the same threads, while remaining well-behaved in
      * less common cases.
      *
-     * 当前ThreadLocal的hashcode值
      */
     private final int threadLocalHashCode = nextHashCode();
 
@@ -99,7 +92,6 @@ public class ThreadLocal<T> {
      * The next hash code to be given out. Updated atomically. Starts at
      * zero.
      *
-     * 静态初始化一个hashcode值
      */
     private static AtomicInteger nextHashCode =
         new AtomicInteger();
@@ -109,12 +101,10 @@ public class ThreadLocal<T> {
      * implicit sequential thread-local IDs into near-optimally spread
      * multiplicative hash values for power-of-two-sized tables.
      *
-     * 表示了连续分配的两个ThreadLocal实例的threadLocalHashCode值的增量, 这是一个常量
      */
     private static final int HASH_INCREMENT = 0x61c88647;
 
     /**
-     * Returns the next hash code.
      */
     private static int nextHashCode() {
         return nextHashCode.getAndAdd(HASH_INCREMENT);
@@ -138,10 +128,6 @@ public class ThreadLocal<T> {
      *
      * @return the initial value for this thread-local
      *
-     * 返回该线程局部变量的初始值。该方法是一个protected方法，为了让子类覆盖而设计。
-     * 这个方法是一个延迟调用方法，在线程第一次调用get()或set(Object)时才执行，并且仅执行1次。
-     * 默认实现，直接返回null。
-     *
      */
     protected T initialValue() {
         return null;
@@ -157,7 +143,6 @@ public class ThreadLocal<T> {
      * @throws NullPointerException if the specified supplier is null
      * @since 1.8
      *
-     * 创建一个线程的局部变量，值由Supplier中的get方法决定，此方法起始于jdk1.8
      *
      */
     public static <S> ThreadLocal<S> withInitial(Supplier<? extends S> supplier) {
@@ -168,7 +153,6 @@ public class ThreadLocal<T> {
      * Creates a thread local variable.
      * @see #withInitial(java.util.function.Supplier)
      *
-     * 默认的构造函数
      *
      */
     public ThreadLocal() {
@@ -182,8 +166,6 @@ public class ThreadLocal<T> {
      *
      * @return the current thread's value of this thread-local
      *
-     * 返回当前线程所对应的线程局部变量的副本，如果当前线程该变量没有赋值，
-     * 它将被initialValue方法初始化
      *
      */
     public T get() {
@@ -207,7 +189,6 @@ public class ThreadLocal<T> {
      *
      * @return the initial value
      *
-     * 从当前线程中获取ThreadLocalMap，如果map不为空，就调用set方法。否则调用createMap创建一个新的Map
      *
      */
     private T setInitialValue() {
@@ -230,7 +211,6 @@ public class ThreadLocal<T> {
      * @param value the value to be stored in the current thread's copy of
      *        this thread-local.
      *
-     * 设置当前线程所对应的线程局部变量的值
      */
     public void set(T value) {
         Thread t = Thread.currentThread();
@@ -251,10 +231,6 @@ public class ThreadLocal<T> {
      * {@code initialValue} method in the current thread.
      *
      * @since 1.5
-     *
-     * 删除当前线程所对应的线程局部变量的值。如果删除后，这个线程局部变量被该线程读取，
-     * 会再次调用initialValue方法初始化这个变量。当线程结束后，对应该线程的局部变量将自动被垃圾回收，
-     * 所以显式调用该方法清除线程局部变量并不是必须的操作，但它可以加快内存回收的速度。
      */
      public void remove() {
          ThreadLocalMap m = getMap(Thread.currentThread());
@@ -335,8 +311,6 @@ public class ThreadLocal<T> {
      * used, stale entries are guaranteed to be removed only when
      * the table starts running out of space.
      *
-     * 可以将ThreadLocalMap理解为Map
-     *
      */
     static class ThreadLocalMap {
 
@@ -348,7 +322,6 @@ public class ThreadLocal<T> {
          * entry can be expunged from table.  Such entries are referred to
          * as "stale entries" in the code that follows.
          *
-         * Entry封装了ThreadLocal的弱引用，以及线程局部变量
          */
         static class Entry extends WeakReference<ThreadLocal<?>> {
             /** The value associated with this ThreadLocal. */
@@ -363,7 +336,6 @@ public class ThreadLocal<T> {
         /**
          * The initial capacity -- MUST be a power of two.
          *
-         * table的默认初始化容量，是2的n次方
          */
         private static final int INITIAL_CAPACITY = 16;
 
@@ -371,28 +343,24 @@ public class ThreadLocal<T> {
          * The table, resized as necessary.
          * table.length MUST always be a power of two.
          *
-         * Entry数组，数组的长度总是2的你次方
          */
         private Entry[] table;
 
         /**
          * The number of entries in the table.
          *
-         * table中entry的数量
          */
         private int size = 0;
 
         /**
          * The next size value at which to resize.
          *
-         * 下一次扩容的大小
          */
         private int threshold; // Default to 0
 
         /**
          * Set the resize threshold to maintain at worst a 2/3 load factor.
          *
-         * 设置负载因子threshold, 当容量达到2/3时就进行扩容
          */
         private void setThreshold(int len) {
             threshold = len * 2 / 3;
