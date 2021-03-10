@@ -81,9 +81,18 @@ public class Executors {
      * execute subsequent tasks.  The threads in the pool will exist
      * until it is explicitly {@link ExecutorService#shutdown shutdown}.
      *
+     * 创建一个混合数量的线程池操作共享无界队列
+     * 任何时刻，最多只有 nThreads 线程是活跃处理任务
+     * 如果额外的任务被提交当所有的线程都是活跃的，将会等待在队列中直到有线程可以使用
+     * 如果任意的线程中止在执行失败将会被关闭，一个新的线程将会代替它，如果需要去执行其他的任务
+     * 这个线程在线程池中将会被退出直到显示的执行 shutdown
+     *
      * @param nThreads the number of threads in the pool
      * @return the newly created thread pool
      * @throws IllegalArgumentException if {@code nThreads <= 0}
+     *
+     *
+     * 只有特定数量的线程一直处于活跃状态，不会有缓冲，当任务多时，一直会追加到队列中，可能会造成内存被撑爆
      */
     public static ExecutorService newFixedThreadPool(int nThreads) {
         return new ThreadPoolExecutor(nThreads, nThreads,
@@ -165,6 +174,11 @@ public class Executors {
      * {@code newFixedThreadPool(1)} the returned executor is
      * guaranteed not to be reconfigurable to use additional threads.
      *
+     * 创建一个线程池 使用一个单例工作者线程操作无界队列
+     * 无论是否这个单例操作者执行失败，一个新的线程将会替代它去执行后续的任务
+     * 任务被保证按顺序的执行，没有超过一个任务将会被执行在跟定的时间
+     * 不像其他等效的 newFixedThreadPool，这个返回的执行器是被保证不被重新设置的使用额外的方法
+     *
      * @return the newly created single-threaded Executor
      */
     public static ExecutorService newSingleThreadExecutor() {
@@ -210,6 +224,16 @@ public class Executors {
      * properties but different details (for example, timeout parameters)
      * may be created using {@link ThreadPoolExecutor} constructors.
      *
+     *
+     * 创建一个线程池-当需要时创建一个新的线程
+     * 但是将会重用以前的构造的线程当他们可以使用
+     * 这个线程池将区别于改善程序性能，执行任何短的同步任务
+     * 执行 execute 将会重用以前的构造的线程如果可以使用
+     * 如果没有存在的线程可以使用，一个新的线程将会被创建，并且加入到线程池中
+     * 线程不需要被使用60s将会被中止并且从缓存中移除
+     * 这用，一个线程池仍然闲置足够长的时间将不会消耗任何的资源
+     * 记录这些线程池使用相似的配置但是不同的说明 业务被创建使用 ThreadPoolExecutor 的构造器
+     *
      * @return the newly created thread pool
      */
     public static ExecutorService newCachedThreadPool() {
@@ -246,6 +270,12 @@ public class Executors {
      * {@code newScheduledThreadPool(1)} the returned executor is
      * guaranteed not to be reconfigurable to use additional threads.
      * @return the newly created scheduled executor
+     *
+     * 创建一个单例线程的执行器可以在给定的延迟之后定时执行，或者定期执行
+     * 如果这个单例线程中断 由于失败在执行之前关闭，一个新的线程将会替代它执行后续任务
+     *
+     * 与 newScheduledThreadPool  相比 线程池大小不能记性改变
+     *
      */
     public static ScheduledExecutorService newSingleThreadScheduledExecutor() {
         return new DelegatedScheduledExecutorService
