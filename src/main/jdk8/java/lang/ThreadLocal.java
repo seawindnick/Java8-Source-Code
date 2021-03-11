@@ -37,10 +37,15 @@ import java.util.function.Supplier;
  * static fields in classes that wish to associate state with a thread (e.g.,
  * a user ID or Transaction ID).
  *
+ * 这个类提供了线程局部变量.这个变量不同于他们的所有线程都能访问的变量同行，通过get 或者 set 有他自己的变量
+ * 独立于初始化拷贝这个变量 。ThreadLocal 实例区别于私有的静态字段在这个类中，希望去通过线程联系状态，例如用户ID或者事务ID
+ *
  * <p>For example, the class below generates unique identifiers local to each
  * thread.
+ * 这个类允许操作生成唯一标识符局部 在所有的线程中
  * A thread's id is assigned the first time it invokes {@code ThreadId.get()}
  * and remains unchanged on subsequent calls.
+ * 这个线程的id被设计在第一时间执行  ThreadId.get() 并且保持不被改变在后续的操作中
  * <pre>
  * import java.util.concurrent.atomic.AtomicInteger;
  *
@@ -68,6 +73,10 @@ import java.util.function.Supplier;
  * thread-local instances are subject to garbage collection (unless other
  * references to these copies exist).
  *
+ * 所有的线程持有者都隐式的引用他们局部线程变量的拷贝，在线程活跃和ThreadLocal实例可访问，在线程结束之后，所有的线程局部变量的拷贝实例作为垃圾回收
+ * 除非其他引用这个拷贝
+ *
+ *
  * @author  Josh Bloch and Doug Lea
  * @since   1.2
  */
@@ -85,12 +94,17 @@ public class ThreadLocal<T> {
      * are used by the same threads, while remaining well-behaved in
      * less common cases.
      *
+     *
+     *ThreadLocals 依赖每一个线程hash散列
+     * 这个ThreadLocal对象实例作为key,查询通过 threadLocalHashCode
+     * 这是一个自定义的hashCode(通常仅用在ThreadLocalMaps) 消除了集合通常的案例 当连续构造ThreadLocals被用在想用的线程，而在不常见情况下仍然保留良好的行为
      */
     private final int threadLocalHashCode = nextHashCode();
 
     /**
      * The next hash code to be given out. Updated atomically. Starts at
      * zero.
+     * 下一个给出去的HashCode,从0开始，自动修改
      *
      */
     private static AtomicInteger nextHashCode =
@@ -100,6 +114,7 @@ public class ThreadLocal<T> {
      * The difference between successively generated hash codes - turns
      * implicit sequential thread-local IDs into near-optimally spread
      * multiplicative hash values for power-of-two-sized tables.
+     * 与成功生成的hashCode不同，顺序局部线程id金操作 变得隐式，传播批量hash值使用 2的整次幂
      *
      */
     private static final int HASH_INCREMENT = 0x61c88647;
@@ -120,11 +135,20 @@ public class ThreadLocal<T> {
      * most once per thread, but it may be invoked again in case of
      * subsequent invocations of {@link #remove} followed by {@link #get}.
      *
+     * 返回当前线程 初始化值 作为这个局部线程的变量
+     * 这个方法将会被执行在第一次这个线程访问这个变量通过 get 方法
+     * 除非这个线程提供方法 set,这种情况下 initialValue 方法将不会被执行在这个线程中
+     * 通常，这个方法被执行在许多一次性线程，但是它也许会被再次执行 当顺序执行 remove 后面接着执行get
+     *
      * <p>This implementation simply returns {@code null}; if the
      * programmer desires thread-local variables to have an initial
      * value other than {@code null}, {@code ThreadLocal} must be
      * subclassed, and this method overridden.  Typically, an
      * anonymous inner class will be used.
+     *
+     * 这个实现简单返回null
+     * 如果程序员期望 线程局部变量有一个初始值而不是null,ThreadLocal必须被子类实现并且覆盖这个方法
+     * 通常，将使用一个匿名内部类
      *
      * @return the initial value for this thread-local
      *
@@ -136,6 +160,8 @@ public class ThreadLocal<T> {
     /**
      * Creates a thread local variable. The initial value of the variable is
      * determined by invoking the {@code get} method on the {@code Supplier}.
+     *
+     * 创建一个局部变量线程，这个初始化值被确定功过执行 get方法在 Supplier 中
      *
      * @param <S> the type of the thread local's value
      * @param supplier the supplier to be used to determine the initial value
@@ -164,6 +190,8 @@ public class ThreadLocal<T> {
      * current thread, it is first initialized to the value returned
      * by an invocation of the {@link #initialValue} method.
      *
+     * 返回当前线程拷贝的局部变量值，如果这个变量在当前线程没有值，它是第一次初始化这个值，将执行initialValue方法的结果返回
+     *
      * @return the current thread's value of this thread-local
      *
      *
@@ -187,6 +215,9 @@ public class ThreadLocal<T> {
      * Variant of set() to establish initialValue. Used instead
      * of set() in case user has overridden the set() method.
      *
+     * set 的变体 建立初始化值
+     * 被用在代替set方法，用在用户覆盖了set方法
+     *
      * @return the initial value
      *
      *
@@ -207,6 +238,10 @@ public class ThreadLocal<T> {
      * to the specified value.  Most subclasses will have no need to
      * override this method, relying solely on the {@link #initialValue}
      * method to set the values of thread-locals.
+     *
+     * 这只当前线程的局部变量拷贝值 通过执行的值
+     * 大多数子类不需要去覆盖这个方法
+     * 仅仅依赖 initialValue 方法设置局部线程变量的值
      *
      * @param value the value to be stored in the current thread's copy of
      *        this thread-local.
@@ -230,6 +265,10 @@ public class ThreadLocal<T> {
      * in the interim.  This may result in multiple invocations of the
      * {@code initialValue} method in the current thread.
      *
+     * 移除当前线程的局部变量值，如果当前线程顺序执行get，它的值将重新被初始化通过执行initialValue方法
+     * 除非这个值是当前线程临时通过set方法设置
+     * 这也许造成多个线程执行这个initialValue 方法
+     *
      * @since 1.5
      */
      public void remove() {
@@ -242,6 +281,8 @@ public class ThreadLocal<T> {
      * Get the map associated with a ThreadLocal. Overridden in
      * InheritableThreadLocal.
      *
+     * 获取 ThreadLocal  的相关的map，覆盖InheritableThreadLocal
+     *
      * @param  t the current thread
      * @return the map
      */
@@ -252,6 +293,7 @@ public class ThreadLocal<T> {
     /**
      * Create the map associated with a ThreadLocal. Overridden in
      * InheritableThreadLocal.
+     * 创建一个相关的map,覆盖InheritableThreadLocal
      *
      * @param t the current thread
      * @param firstValue value for the initial entry of the map
@@ -263,6 +305,7 @@ public class ThreadLocal<T> {
     /**
      * Factory method to create map of inherited thread locals.
      * Designed to be called only from Thread constructor.
+     * 工厂方法创建一个 继承了 局部线程的map.被设计为仅仅能通过 Thread 构造函数调用
      *
      * @param  parentMap the map associated with parent thread
      * @return a map containing the parent's inheritable bindings
@@ -278,6 +321,7 @@ public class ThreadLocal<T> {
      * needing to subclass the map class in InheritableThreadLocal.
      * This technique is preferable to the alternative of embedding
      * instanceof tests in methods.
+     *
      */
     T childValue(T parentValue) {
         throw new UnsupportedOperationException();
@@ -311,6 +355,16 @@ public class ThreadLocal<T> {
      * used, stale entries are guaranteed to be removed only when
      * the table starts running out of space.
      *
+     *
+     * ThreadLocalMap 是一个自定义的hashMap,只适用于维护局部线程只
+     * 没有操作被暴露在外面的ThreadLocal类
+     * 这个类的包私有允许在类线程中声明字段
+     * 帮助处理非常大的和长时间存活的用法
+     * 这个hashTable实例用 WeakReferences 作为key,
+     * 所以，当引用的table没有空间时，将会移除旧的table
+     * 然而，所以引用队列不被引用，stale实例被
+     * 保证能够移除仅仅当这个 表运行超出空间
+     *
      */
     static class ThreadLocalMap {
 
@@ -321,6 +375,11 @@ public class ThreadLocal<T> {
          * == null) mean that the key is no longer referenced, so the
          * entry can be expunged from table.  Such entries are referred to
          * as "stale entries" in the code that follows.
+         *
+         * 是个实例在这个hashMao中继承 WeakReference
+         * 使用它意味着引用字段作为key(经常作为ThreadLocal对象)
+         * null 的key意味着这个key不能长时间引用，所以这个实体能够被从table中删除
+         * 这样的实体被称为 stale entries ，在下列的代码中
          *
          */
         static class Entry extends WeakReference<ThreadLocal<?>> {
@@ -335,7 +394,7 @@ public class ThreadLocal<T> {
 
         /**
          * The initial capacity -- MUST be a power of two.
-         *
+         * 初始化容积，必须是2的整次幂
          */
         private static final int INITIAL_CAPACITY = 16;
 
@@ -343,17 +402,20 @@ public class ThreadLocal<T> {
          * The table, resized as necessary.
          * table.length MUST always be a power of two.
          *
+         * 必要时重新调整，长度是2的整次幂
          */
         private Entry[] table;
 
         /**
          * The number of entries in the table.
+         * 实例在table中的位置
          *
          */
         private int size = 0;
 
         /**
          * The next size value at which to resize.
+         * 哪一个需要调整的长度
          *
          */
         private int threshold; // Default to 0
@@ -361,6 +423,7 @@ public class ThreadLocal<T> {
         /**
          * Set the resize threshold to maintain at worst a 2/3 load factor.
          *
+         * 负荷因子 2/3 0.666666
          */
         private void setThreshold(int len) {
             threshold = len * 2 / 3;
@@ -368,6 +431,7 @@ public class ThreadLocal<T> {
 
         /**
          * Increment i modulo len.
+         * 自增下一个的下一个角标
          */
         private static int nextIndex(int i, int len) {
             return ((i + 1 < len) ? i + 1 : 0);
@@ -375,6 +439,7 @@ public class ThreadLocal<T> {
 
         /**
          * Decrement i modulo len.
+         * 上一个角标
          */
         private static int prevIndex(int i, int len) {
             return ((i - 1 >= 0) ? i - 1 : len - 1);
@@ -385,6 +450,8 @@ public class ThreadLocal<T> {
          * ThreadLocalMaps are constructed lazily, so we only create
          * one when we have at least one entry to put in it.
          *
+         * 构造一个新的Map包含第一个key,第一个值
+         * ThreadLocalMaps 懒加载被创建，所以我们仅仅创建一个当我们有至少一个实体添加进该集合中
          *
          */
         ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
@@ -398,6 +465,8 @@ public class ThreadLocal<T> {
         /**
          * Construct a new map including all Inheritable ThreadLocals
          * from given parent map. Called only by createInheritedMap.
+         * 构造一个新的map 包含所有的 Inheritable ThreadLocals 从给定的map中
+         * 仅仅在创建 createInheritedMap 时调用
          *
          * @param parentMap the map associated with parent thread.
          */
@@ -432,6 +501,10 @@ public class ThreadLocal<T> {
          * designed to maximize performance for direct hits, in part
          * by making this method readily inlinable.
          *
+         * 获取一个相关key的实例，这个方法自身持有快捷路径：直接命中存在的key
+         * 否则依赖 getEntryAfterMiss
+         * 这个设计为了最大性能去直接命中，部分原因是这种方法易于内联
+         *
          * @param  key the thread local object
          * @return the entry associated with key, or null if no such
          */
@@ -447,6 +520,8 @@ public class ThreadLocal<T> {
         /**
          * Version of getEntry method for use when key is not found in
          * its direct hash slot.
+         *
+         * 获取实体方法的版本，用于当使用key直接hash点命中时不存在
          *
          * @param  key the thread local object
          * @param  i the table index for key's hash code
@@ -472,7 +547,7 @@ public class ThreadLocal<T> {
 
         /**
          * Set the value associated with key.
-         *
+         * 设置一个key相关联的值
          * @param key the thread local object
          * @param value the value to be set
          */
@@ -511,6 +586,7 @@ public class ThreadLocal<T> {
 
         /**
          * Remove the entry for key.
+         * 移除这个key的实体值
          */
         private void remove(ThreadLocal<?> key) {
             Entry[] tab = table;
@@ -533,9 +609,15 @@ public class ThreadLocal<T> {
          * the value parameter is stored in the entry, whether or not
          * an entry already exists for the specified key.
          *
+         * 替换旧的实体，根据一个指定key的值进行设置操作
+         * 这个值通过一个值的参数存储进这个实体，无论这个实体是否已经存在于指定的key中
+         *
          * As a side effect, this method expunges all stale entries in the
          * "run" containing the stale entry.  (A run is a sequence of entries
          * between two null slots.)
+         *
+         * 另外一个影响，这个方法清除素有的旧数据 在 包含旧的实体
+         * 一个 run 是在实体中是顺序的在两个null槽
          *
          * @param  key the key
          * @param  value the value to be associated with key
@@ -606,6 +688,9 @@ public class ThreadLocal<T> {
          * any other stale entries encountered before the trailing null.  See
          * Knuth, Section 6.4
          *
+         * 清除一个旧数据通过 rehashing 任何可能的实体碰撞，在旧实体槽和下一个null槽
+         * 这也清除任何其他的旧实体在遇到遍历空之前
+         *
          * @param staleSlot index of slot known to have null key
          * @return the index of the next null slot after staleSlot
          * (all between staleSlot and this slot will have been checked
@@ -656,8 +741,15 @@ public class ThreadLocal<T> {
          * proportional to number of elements, that would find all
          * garbage but would cause some insertions to take O(n) time.
          *
+         * 一些扫描旧实体的单元
+         * 这个执行当一个新的元素添加或者一个旧的实体被清除
+         * 它执行扫描的次数为对数，作为一个不扫描（快但是包含垃圾）和 扫描元素数量成比例的次数之间的一种平衡
+         * 可以发现所有的垃圾，但是会造成插入操作执行 O(n)的时间
+         *
+         *
          * @param i a position known NOT to hold a stale entry. The
          * scan starts at the element after i.
+         * 一个位置已知 没有持有旧的值，这个扫描开始在这个元素后
          *
          * @param n scan control: {@code log2(n)} cells are scanned,
          * unless a stale entry is found, in which case
@@ -669,7 +761,16 @@ public class ThreadLocal<T> {
          * using straight log n. But this version is simple, fast, and
          * seems to work well.)
          *
+         *  log2(n) 单元被扫描，除非这个旧值被发现，这种情况下 log2(table.length)-1 额外的单元被扫描
+         *          当执行插入调用时，这个参数是元素位置的值，但是当replaceStaleEntry调用时，这个参数是table的长度
+         *          所有的这些都可以被改变，而不是通过n或者使用加权log n
+         *          但是这个版本比较简单，快速，并且看起来工作的很好
+         *
+         *
+         *
+         *
          * @return true if any stale entries have been removed.
+         * 如果任何旧值被删除返回true
          */
         private boolean cleanSomeSlots(int i, int n) {
             boolean removed = false;
